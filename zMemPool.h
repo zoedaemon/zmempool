@@ -9,4 +9,7 @@ void *zMemPool_get_start_pointer(void);
 
 char *zMemPool_print_all_field(void);
 
+char *zMemPool_print_all_mem(int limit);
+
+char *zMemPool_print_segment_header(void *start);
 #endif

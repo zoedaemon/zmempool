@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stdout,"INISIALISASI AWAL BERHASIL BROOOHhh : %x\n", zMemPool_get_start_pointer());
 	
 	//Test alokasi data 1
-	char *copystring = zMemPool_malloc(sizeof(char) * 10);
+	char *copystring = zMemPool_malloc(sizeof(char) * 3);
 	void *start = copystring;
 	strcpy(copystring, "INI BUDI COYYYYYYYYYYYY"); //akan kepenggal oleh alokasi selanjunya coz zMemPool_malloc cuman 10 slot aza
 	fprintf(stdout,"TEST ALOKASI 1 : %s\n\n", copystring);	
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 	zMemPool_print_all_field();
 
 	
-	print_sequence( start, strlen("INI BUDI COYY  DAN INI ANI++++++++++++++++++") );
+	print_sequence( start, strlen("INI BUDI COYY  DAN INI ANI++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++") );
 	
 	
 	//Test alokasi data 3 : struct tipe data
@@ -57,14 +57,15 @@ int main(int argc, char *argv[]) {
 	};
 	struct data *data = zMemPool_malloc( sizeof(struct data) );
 	data->count = 9929;
+	//NOTE: string di sini sebagai konstanta dan d tunjuk sebagai pointer, jd gak bakalan bisa ditampilkan karena gak ada d memori alokasi
 	data->string = "HOolyyyy seeee iittt";
 	start = data;
 	fprintf(stdout,"\n\nTEST ALOKASI 3 : [%d  %s]\n\n", data->count, data->string);
 	zMemPool_print_all_field();
 	
 	
-	print_sequence_pointer( start, sizeof(struct data)  );
-	print_sequence( start, sizeof(struct data)  );
+	print_sequence_pointer( start, sizeof(struct data) + 50  );
+	print_sequence( start, sizeof(struct data) + 50 );
 	
 	
 	//Test alokasi data 4 : overlapping struct
@@ -73,13 +74,13 @@ int main(int argc, char *argv[]) {
 	data->count = 1122345;
 	data->string = zMemPool_malloc( strlen("HOolyyyy seeee iittttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt") );
 	strncpy(data->string , "HOolyyyy seeee iittttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt", strlen("HOolyyyy seeee iittttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"));
-	start = data;
+	//start = data;
 	fprintf(stdout,"\n\nTEST ALOKASI 4 : [%d  %s]\n\n", data->count, data->string);
 	zMemPool_print_all_field();
 	
 	
-	print_sequence_pointer( start, sizeof(struct data)  );
-	print_sequence( start, sizeof(struct data)  );
+	print_sequence_pointer( data, sizeof(struct data) + strlen("HOolyyyy seeee iittttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt")   );
+	print_sequence( data, sizeof(struct data)  + strlen("HOolyyyy seeee iittttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt")  );
 	
 	
 	
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
 	data_reverse->reverse = zMemPool_malloc( strlen(long_string) );
 	strncpy(data_reverse->reverse, long_string, strlen(long_string));
 	
-	start = data_reverse;
+	//start = data_reverse;
 	fprintf(stdout,"\n\nTEST ALOKASI 5 : [%d  %s  ] => %s\n\n", data_reverse->count, data_reverse->string, data_reverse->reverse);
 	
 	zMemPool_print_all_field();
@@ -111,11 +112,16 @@ int main(int argc, char *argv[]) {
 	/// \note penambahan fungsi zMemPool_malloc_dynamic pakah bermanfaat ?
 	
 	data_reverse->data = data;
-	fprintf(stdout,"\n\nTEST ALOKASI 5 : [%d  %s]\n\n", data_reverse->data->count, data_reverse->data->string);
+	fprintf(stdout,"\n\nTEST ALOKASI 5,5 : [%d  %s]\n\n", data_reverse->data->count, data_reverse->data->string);
 	
-	print_sequence_pointer( start, sizeof(struct data_reverse)  );
-	print_sequence( start, sizeof(struct data_reverse)  );
+	//print_sequence_pointer( start, sizeof(struct data_reverse)  );
+	//print_sequence( start, sizeof(struct data_reverse)  );
 	
 	
+	zMemPool_print_all_mem(1000);
+	
+	zMemPool_print_segment_header(start);
+	zMemPool_print_segment_header(data);//karena data memiliki data string yg dinamis maka alamat data_reverse akan beda dengan data->next_segment
+	zMemPool_print_segment_header(data_reverse);
 }                  
 
