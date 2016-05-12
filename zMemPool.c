@@ -8,31 +8,60 @@
 /// \todo:buat fungsi cek error dengan awalan tanda tilde
 #define ALLOCATION_FAILED	"~01: ALLOCATION FAILED"
 
-struct segment{
+
+/**
+	@brief 
+	Tiap alokasi memori akan membentuk segment baru, #segment adalah struktur data khusus 
+	yg menyimpan penunjuk (pointer) ke lokasi memori yg sudah dialokasikan oleh fungsi zMemPool_init 
+	sebelum pemanggilan fungsi khusus alokasi memory pool (zMemPool_malloc, zMemPool_calloc dan zMemPool_realloc)
+*/
+struct segment_header{
 	// \todo: perlu cek tipe sistem x86_64 apa 32 bit system 
 	void *current_start_pointer;
 	void *current_end_pointer;
 	size_t reserved_size;
-	//TODO tambah "bool flag;" tuk menandai segment sedang free (sudah difree sebelumsnya)
+	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
+	short freed : 2;
+	struct segment *next_segment;
 };
 
 
 /**
-	\note: selisih address space antara zMemPool dengan start_pointer adalah 56,472 (size_t)
+freed adalah double linked list yg perlu menshorting listnya berdasarkan #segment_size
+untuk reuse mempool segement yg d free (zMemPool_free)
+
+\todo: malloc biasa apa masukin ke mempool jg ? SOLUSI : tuk sementara malloc biasa za
+*/
+struct segment_freed{
+	void *left;
+	void *right;
+	void *segment_address;
+	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
+	size_t  segment_size;
+};
+
+/**
+	@brief 
+	menyimpan struktur data utama, yaitu memory pool, segments akan grow atau bertambah jika ada alokasi baru
+	\note: selisih address space antara zMemPool dengan start_pointer adalah 56,472 (size_t, Windows)
 	\todo: lakukan test case _mempool->segments apabila membesar karena realloc apa akan berpengaruh ke zMemPool lokasi ? sepertinya aman2 za
 */
 struct zMemPool {
-	struct segment **segments;
-	unsigned int n_segment;
-	void *start_pointer;
-	void *current_end_pointer;
-	void *end_pointer;
-	size_t total_size_t;
+	struct segment_header **segments; ///< array dr pointer yg telah d alokasikan
+	unsigned int n_segment;///< jumlah segment saat ini
+	void *start_pointer; ///< pointer ke memori awal alokasi malloc()
+	void *current_end_pointer; ///< pointer ke akhir memori dari segments[n-1] (segment yg baru dialokasikan)
+	void *end_pointer;///< pointer ke memori akhir alokasi malloc()
+	size_t total_size_t;///< total memori yg ditampung zMemPool 
 	int gap; //jarak per segment WARNING : bisa mempengaruhi segment lain	
 };
 
 
-
+/**
+@brief menggunakan alokasi global, hnya satu object ini yg digunakan untuk keseluruhan program
+\todo: cek ukuran memori ZMEMPOOL_MAX_SIZE harus kurang dari memori yg dimiliki sistem, max 70%nya
+\todo: harus thread safe, mutex vs semaphore
+*/
 struct zMemPool *_mempool;
 
 
@@ -47,7 +76,7 @@ char *zMemPool_init(size_t size, int gap)
 	
 	_mempool->start_pointer = memset(_mempool->start_pointer, '\0', size);
 	
-	if ( (_mempool->segments = (struct segment **)calloc(1, sizeof(struct segment))) == NULL )
+	if ( (_mempool->segments = (struct segment_header **)calloc(1, sizeof(struct segment_header))) == NULL )
 		return ALLOCATION_FAILED;
 	if (gap < 0)
 		gap = 1;
@@ -86,14 +115,14 @@ void *zMemPool_malloc(size_t size_of)
 	//if (_mempool == NULL) ??? gak konsisten kyknya
 	
 	if ( (_mempool->segments = (
-				struct segment *)realloc(_mempool->segments, sizeof(struct segment ) *  (_mempool->n_segment+1))) 
+				struct segment *)realloc(_mempool->segments, sizeof(struct segment_header ) *  (_mempool->n_segment+1))) 
 		== NULL )
 		return (void*)ALLOCATION_FAILED;
 	
-	if ( (_mempool->segments[_mempool->n_segment - 1] = (struct segment *)malloc(sizeof(struct segment))) == NULL )
+	if ( (_mempool->segments[_mempool->n_segment - 1] = (struct segment_header *)malloc(sizeof(struct segment_header))) == NULL )
 		return (void*)ALLOCATION_FAILED;
 	
-	struct segment *pointing = _mempool->segments[_mempool->n_segment - 1];
+	struct segment_header *pointing = _mempool->segments[_mempool->n_segment - 1];
 	
 	pointing->current_start_pointer = _mempool->current_end_pointer + 
 			((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
@@ -110,7 +139,7 @@ void *zMemPool_malloc(size_t size_of)
 return pointing->current_start_pointer;
 }
 
-
+ 
 
 /*
 cara 1 :
