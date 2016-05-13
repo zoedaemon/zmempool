@@ -12,16 +12,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
+
 #include "zMemPool.h"
-
-
-#define ZMEMPOOL_MAX_SIZE 10000000
-
-#define SEGMENT_HEADER_GAP_TO_DATA 0
-
-/// \todo:buat fungsi cek error dengan awalan tanda tilde
-#define ALLOCATION_FAILED	"~01: ALLOCATION FAILED"
-
 
 /**
 	@brief 
@@ -66,7 +59,8 @@ struct zMemPool {
 	void *start_pointer; ///< pointer ke memori awal alokasi malloc()
 	void *current_end_pointer; ///< pointer ke akhir memori dari segments[n-1] (segment yg baru set)
 	void *end_pointer;///< pointer ke memori akhir alokasi malloc()
-	size_t total_size_t;///< total memori yg ditampung zMemPool 
+	zMemPool_alloc_size_t total_size_t;///< total memori yg ditampung zMemPool 
+	size_t current_size;///< total memori yg ditampung zMemPool 
 	int gap; //jarak per segment WARNING : bisa mempengaruhi segment lain	
 	void *segment_header_start;
 	void *segment_header_end;
@@ -77,14 +71,18 @@ struct zMemPool {
 @brief menggunakan alokasi global, hnya satu object ini yg digunakan untuk keseluruhan program
 \todo: cek ukuran memori ZMEMPOOL_MAX_SIZE harus kurang dari memori yg dimiliki sistem, max 70%nya
 \todo: harus thread safe, mutex vs semaphore
+\todo: lakukan test pada major version, dimana _mempool adalah array of mempool jd bisa menggunakan multiple 
+		zMemPool untuk ukuran yg besar :), untuk mencegah bug:<17.54.13.05.16>
 */
 struct zMemPool *_mempool;
 
 
 
 
-char *zMemPool_init(size_t size, int gap)
+char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 {
+	if ( size == SIZE_MAX)
+		return ALLOCATION_FAILED;
 	if ( (_mempool = (struct zMempool *)malloc( sizeof(struct zMemPool))) == NULL )
 		return ALLOCATION_FAILED;
 	if ( (_mempool->start_pointer = malloc(size)) == NULL ) {
@@ -104,6 +102,7 @@ char *zMemPool_init(size_t size, int gap)
 	_mempool->end_pointer = _mempool->start_pointer + size;
 	_mempool->segment_header_start = NULL;
 	_mempool->segment_header_end  = NULL;
+	_mempool->current_size = 0;
 return NULL;
 }
 
@@ -113,11 +112,13 @@ char *zMemPool_print_all_field(void)
 {
 	fprintf(stdout,"_mempool : %x\n", _mempool);
 	fprintf(stdout,"_mempool->start_pointer : %x\n", _mempool->start_pointer);
-	fprintf(stdout,"_mempool->total_size_t  : %d\n", _mempool->total_size_t );
-	fprintf(stdout,"_mempool->n : %d\n", _mempool->gap);
+	fprintf(stdout,"_mempool->total_size_t  : %llu\n", _mempool->total_size_t );
+	fprintf(stdout,"_mempool->gap (segment gap) : %d\n", _mempool->gap);
 	fprintf(stdout,"_mempool->n_segment : %d\n", _mempool->n_segment);
 	fprintf(stdout,"_mempool->current_end_pointer : %x\n", _mempool->current_end_pointer);
 	fprintf(stdout,"_mempool->end_pointer : %x\n", _mempool->end_pointer);
+	fprintf(stdout,"_mempool->current_size : %d\n", _mempool->current_size);
+	
 	
 return NULL;
 }
@@ -156,7 +157,12 @@ void *zMemPool_malloc(size_t size_of)
 	/// \todo reuse dari link list
 	struct segment_header *pointing = _mempool->current_end_pointer;
 	
-	
+	//sediakan jarak untuk penempatan data
+	/// \bug:<17.54.13.05.16> segmentation fault coz memory out of boundary, pdahal cuman cek aza tp dah error; (zMemPool_alloc_size_t)1000000000000000
+	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA) 
+		>= (char*)_mempool->end_pointer) {
+		return ALLOCATION_FAILED;
+	}
 	pointing->current_start_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) + 
 									SEGMENT_HEADER_GAP_TO_DATA;
 	
@@ -171,14 +177,20 @@ void *zMemPool_malloc(size_t size_of)
 	//jumlahkan dengan ukuran struktur data [strucct segment_header] dan gap to data dan ukuran data agar pointer
 	//pindah ke next address
 	//penjumlahan dengan gap d lakukan d sini
-	_mempool->current_end_pointer = pointing->current_start_pointer + sizeof(struct segment_header) + 
+	void *end = pointing->current_start_pointer + sizeof(struct segment_header) + 
 									SEGMENT_HEADER_GAP_TO_DATA + size_of + 
 										((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
+	//Fail to check
+	if ((char*)end >= (char*)_mempool->end_pointer) {
+		return ALLOCATION_FAILED;
+	}else
+		_mempool->current_end_pointer = end;
 	
 	//next segment, bisa untuk iterator menelusuri pointer2/segment2 yg aktif
 	pointing->next_segment = _mempool->current_end_pointer;
 	
 	_mempool->n_segment++;
+	_mempool->current_size += sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA + size_of + ((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
 	
 	///\todo: realloc jika zMemPool-size exausted
 

@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "zMemPool.h"
+#include "rdtsc.h"
+
+#include "zMemPool_Test.h"
+
 /* run this program using the console pauser or add your own getch, system("pause") or input loop */
 
 
@@ -24,6 +29,7 @@ void print_sequence_pointer(void *start, unsigned int size) {
 int main(int argc, char *argv[]) {
 	
 	//Test inisialisasi
+	/*
 	char *err = zMemPool_init(10000000, 1);
 	
 	if (err != NULL) {
@@ -118,10 +124,57 @@ int main(int argc, char *argv[]) {
 	//print_sequence( start, sizeof(struct data_reverse)  );
 	
 	
-	zMemPool_print_all_mem(1000);
+	zMemPool_print_all_mem(10000);
 	
 	zMemPool_print_segment_header(start);
 	zMemPool_print_segment_header(data);//karena data memiliki data string yg dinamis maka alamat data_reverse akan beda dengan data->next_segment
 	zMemPool_print_segment_header(data_reverse);
+	
+
+
+	
+	
+	//// TEST DUMMYCPY
+	char *string_nomempool, *withmempool, *text_to_battle = "I don't know who you, where you come from, I'll find you !!!''";
+	unsigned long long a, b;
+	int i, length, size=1000000, error_count=0;
+	
+	a = rdtsc();
+	for	(i=0; i<size; i++) {
+		length = strlen(text_to_battle);
+		string_nomempool = (char *)malloc(sizeof(char) * length);
+		memcpy(string_nomempool, text_to_battle, length); 
+		free(string_nomempool);
+	}
+///	fprintf(stdout,"\n\nresult %s\n\n", string_nomempool);//STACK CORRUPT
+	
+    b = rdtsc();
+	fprintf(stderr,"\n\n\nWAKTU PEMBACAAN = %llu ns ( %lf micro second | %lf second)\n\n",
+            b-a, (double)(b-a)/1000000, (double)(b-a)/1000000000);
+
+	
+	a = rdtsc();
+	for	(i=0; i<size; i++) {
+		length = strlen(text_to_battle);
+		withmempool = (char *)zMemPool_malloc(sizeof(char) * length);
+		
+		//fprintf(stdout,"FUCKKKKKKKKK: %x %s %x %s => %d\n", withmempool, withmempool, ALLOCATION_FAILED, ALLOCATION_FAILED, strncmp(withmempool, ALLOCATION_FAILED, strlen(ALLOCATION_FAILED)) )	;
+		if ( strncmp(withmempool, ALLOCATION_FAILED, strlen(ALLOCATION_FAILED) ) == 0 ){
+			error_count = i;
+			break;
+		}else
+			memcpy(withmempool, text_to_battle, length); 
+	}
+	
+    b = rdtsc();
+	fprintf(stderr,"\n\n\nWAKTU PEMBACAAN = %llu ns ( %lf micro second | %lf second)\n\n",
+            b-a, (double)(b-a)/1000000, (double)(b-a)/1000000000);
+
+
+	fprintf(stdout,"\n\nerror_count %d\n\n", error_count);
+	zMemPool_print_all_field();
+*/
+
+	zMemPool_Test_all(NULL);	
 }                  
 
