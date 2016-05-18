@@ -1,5 +1,5 @@
 /**
-* Library for fast memory alocation  coz this lib use memory pool that you can initialized at the first before 
+* @brief Library for fast memory alocation  coz this lib use memory pool that you can initialized at the first before 
 * your main logic program run, no need to malloc, calloc or realloc manualy that can slowdown your program, instead
 * use this memory pool library for eficiency memory pointing without actual allocation.
 * MIT
@@ -8,6 +8,10 @@
 *	1) Malloc, realloc and free in one single loop, 1000 iteration
 *	2) Long string manipulation (test string algorithm, ex. porter stemming, levenstein distance, natural language processing, etc)
 *	3) Make some data structure from this mempool (ex. pointer of array, pointer of pointer, multi pointer of pointer, etc)
+* \todo: Apakah perlu mutex tuk [zMemPool]->current_end_pointer spaya gak corrupt pointer memorynya ? apa semaphore ? coba read-write locks !!
+		tp kyknya bagus semaphore coz bisa transfer [zMemPool]->current_end_pointer ke next thread biar lebih cepat prosesnya tanpa menunggu 
+		current thread selesai memproses :)
+		atau bisa coba ini https://www.cs.cf.ac.uk/Dave/C/node31.html sepertinya bagus pake "ret = pthread_cond_timedwait(&cv, &mp, &abstime);"
 **/
 
 #include <stdlib.h>
@@ -33,6 +37,7 @@ struct segment_header{
 
 
 /**
+@brief 
 freed adalah double linked list yg perlu menshorting listnya berdasarkan #segment_size.
 struktur data ini untuk reuse mempool segement yg d free (zMemPool_free), tiap object dari tipe 
 data ini memrepresentasikan nilai segment header (indexnya aza cuy)
@@ -85,6 +90,11 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 		return ALLOCATION_FAILED;
 	if ( (_mempool = (struct zMempool *)malloc( sizeof(struct zMemPool))) == NULL )
 		return ALLOCATION_FAILED;
+		
+	/**
+		supaya gak lazy evaluation gunakan calloc(1, size) ?
+		http://stackoverflow.com/questions/4383059/malloc-memory-questions
+	*/
 	if ( (_mempool->start_pointer = malloc(size)) == NULL ) {
 		free(_mempool);
 		return ALLOCATION_FAILED;

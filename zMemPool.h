@@ -15,7 +15,7 @@
 \todo: max-nya adalah sepanjang2nya nilai yg bisa d tampung d tipe data ini, klo memori mencukupi tetap teralokasi,
 		tp kita tidak tau apakah sudah max karena nilai size otomatis di set d ukuran maksimal tipe data yg digunakan
 		Misal Memori sistem 32 Gb, qt set ukuran ZMEMPOOL_MAX_SIZE=100000000000000 akan dibulatkan jadi 27644723211
-		*) THIS NEED VALIDATION 
+		*) THIS NEED VALIDATION : 
 */
 #define zMemPool_alloc_size_t 	unsigned long long int 
 
