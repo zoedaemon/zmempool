@@ -240,7 +240,11 @@ void __cdecl zMemPool_free(void *_Memory);
 
 
 //gunakan operasi _NumOfElements * size_t _SizeOfElements
-void *__cdecl zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements);
+void *__cdecl zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements)
+{
+      //if _NumOfElements == 0 ??? look some linux man page :D
+      return zMemPool_malloc( _NumOfElements * _SizeOfElements);
+}
 
 //GROW: free segment lama dan reservasi blog memory lebih besar d akhir (zMemPool*)->end_pointer
 //SHRINK: free bagian segment lama yg berkurang dan segment tetap pada blog memory yg sama

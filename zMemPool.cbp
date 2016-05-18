@@ -31,9 +31,27 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="dependency/CException.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="dependency/CException.h" />
+		<Unit filename="dependency/unity.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="dependency/unity.h" />
+		<Unit filename="dependency/unity_internals.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="rdtsc.h" />
+		<Unit filename="zMemPool.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="zMemPool.h" />
+		<Unit filename="zMemPool_Test.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="zMemPool_Test.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

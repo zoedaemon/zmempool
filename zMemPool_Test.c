@@ -57,11 +57,50 @@ void zMemPool_Test_2(void)
 	//**** END TEST
 }
 
+
+
+void zMemPool_Test_3(void)
+{
+
+	char *TestFunc = "zMemPool_Test_3";
+	char *TestDetail = "test alokasi dengan fungsi zMemPool_calloc untuk array pointer dan pointer of pointer";
+	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
+
+	//****BEGIN TEST
+	int arr_int_static[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+	int *arr_int_dynamic = zMemPool_calloc(10, sizeof(int));
+	int i;
+
+	fprintf(stdout,"init : ");
+	for (i=0; i < 10; i++) {
+            arr_int_dynamic[i] = i;
+            fprintf(stdout,"%d, ", arr_int_dynamic[i]);
+	}
+	fprintf(stdout,"\n");
+
+	fprintf(stdout,"compare : ");
+	for (i=0; i < 10; i++) {
+            if ( arr_int_dynamic[i] == arr_int_static[i])
+                  fprintf(stdout,"<<<<<<<<<< Copy data berhasil >>>>>>>>>>\n");
+            else
+                  fprintf(stderr,"XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
+            fprintf(stdout,"%d, ", arr_int_dynamic[i]);
+            TEST_ASSERT( arr_int_dynamic[i] == arr_int_static[i] );
+	}
+	fprintf(stdout,"\n");
+
+
+	zMemPool_print_all_field();
+
+	//**** END TEST
+}
+
 int zMemPool_Test_all(void *parms)
 {
 	UnityBegin("zMemPool_Test.c");
 	RUN_TEST(zMemPool_Test_1);
 	RUN_TEST(zMemPool_Test_2);
+      RUN_TEST(zMemPool_Test_3);
 
 	/**
 	\note : UnityEnd akan mengembalikan nilai kembalian yg sama dengan jumlah test yg gagal
