@@ -12,6 +12,8 @@
 						" \nTEST CASE : \n"
 #define ALLOC_SIZE	(zMemPool_alloc_size_t)100000000000000 //GAK OVERFLOW d windows with 3 Gb memory fisik :D
 
+
+
 void zMemPool_Test_1(void)
 {
 	char *TestFunc = "zMemPool_Test_1";
