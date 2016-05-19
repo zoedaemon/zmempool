@@ -2,6 +2,19 @@
 #define __zMEMPOOL_H__
 
 
+/*
+#ifndef UINT_MAX
+#define UINT_MAX     (sizeof(unsigned int) * 256 - 1)
+#endif
+
+#ifndef ULONG_MAX
+#define ULONG_MAX    (sizeof(unsigned long) * 256 - 1)
+#endif
+
+#ifndef ULLONG_MAX
+#define ULLONG_MAX    (sizeof(unsigned long long) * 256 - 1)
+#endif
+*/
 
 #define ZMEMPOOL_MAX_SIZE 10000000
 

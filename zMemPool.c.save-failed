@@ -88,14 +88,12 @@ struct zMemPool *_mempool;
 
 char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 {
-      //absolute size (jika minus harus dipositifkan)
-      //if ( size < 0)
-	//	size -= (size + 100);
+	if ( size == SIZE_MAX)
+		return ALLOCATION_FAILED;
 
-      if (size >= INT_MAX) {
-            size = (unsigned long long int)(INT_MAX - 100) & 0xfffffffc;
-            fprintf(stderr,"size : %ld\n", size);
-      }
+      if ( size < 0)
+		size -= size ;
+
       long long int i_test_alloc = 0, max_test_alloc = 1000000000;
 
 
@@ -109,14 +107,11 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 	*/
 	if ( (_mempool->start_pointer = calloc(1, size)) == NULL ) {
 
-            //insist to alloc :D
-            //handle if size can overflow to negative :( need binary Operation to delete negative flag !!!
             while ( (_mempool->start_pointer = calloc(1, size) ) == NULL
                         && i_test_alloc < max_test_alloc) {
                   i_test_alloc++;
-                  //size = (size + i_test_alloc+3)& 0xfffffffc;
-                  size = (unsigned long long int)(size + i_test_alloc + 3) & 0xfffffffc;
-                  //fprintf(stderr,"size : %ld\n", size);
+                  size = (size + i_test_alloc+3)& 0xfffffffc;
+                  fprintf(stderr,"size : %ld\n", size);
 		}
 
             if (i_test_alloc >=  max_test_alloc || _mempool->start_pointer == NULL) {
@@ -124,9 +119,6 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
                   return ALLOCATION_FAILED;
             }
 	}
-
-	fprintf(stderr,"actual size : %ld\n", size);
-
 	if (gap < 0)
 		gap = 1;
 
@@ -141,7 +133,6 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 	_mempool->segment_header_start = NULL;
 	_mempool->segment_header_end  = NULL;
 	_mempool->current_size = 0;
-
 return NULL;
 }
 

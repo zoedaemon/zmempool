@@ -11,7 +11,8 @@
 #define TEST_CAPTION 	"##########################################################################" \
 						" \nTEST CASE : \n"
 //#define ALLOC_SIZE	(zMemPool_alloc_size_t)100000000000000 //GAK OVERFLOW d windows with 3 Gb memory fisik :D
-#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000 ///BUG untuk size ini di test zMemPool_Test_2
+//#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000 ///BUG untuk size ini di test zMemPool_Test_2 (WINDOWS)
+#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000///BUG safe max size
 
 
 void zMemPool_Test_1(void)
@@ -164,9 +165,16 @@ void zMemPool_Test_4(void)
 
 	fprintf(stdout,"init : ");
 	for (i=0; i < 10; i++) {
+            //alokasi main struct
             arr_ptr_dynamic[i] = zMemPool_malloc( sizeof(struct test_obj) );
+            //alokasi main struct->string
+            int len = strlen(to_copy_arr_ptr[i]);
+            ((struct test_obj *)arr_ptr_dynamic[i])->str = zMemPool_malloc( sizeof(char) * len );
+            //copy string
             strcpy(((struct test_obj *)arr_ptr_dynamic[i])->str, to_copy_arr_ptr[i]);
+            //copy integer
             ((struct test_obj *)arr_ptr_dynamic[i])->uniqid = to_copy_arr_int[i];
+            //show values
             fprintf(stdout,"(%s, ", (char *) ((struct test_obj *)arr_ptr_dynamic[i])->str );
             fprintf(stdout,"%d)", (char *) ((struct test_obj *)arr_ptr_dynamic[i])->uniqid );
             //if (arr_int_dynamic[i] == 8)
@@ -180,7 +188,7 @@ void zMemPool_Test_4(void)
                   fprintf(stdout,"<<<<<<<<<< Copy data berhasil >>>>>>>>>>\n");
             }
             //TEST_ASSERT( strcmp(copystring, "INI BUDI COYYYYYYYYYYYY") == 0 ); //this one will pass
-            TEST_ASSERT_EQUAL_STRING_MESSAGE(((struct test_obj *)arr_ptr_dynamic[i])->str, arr_ptr_dynamic[i],
+            TEST_ASSERT_EQUAL_STRING_MESSAGE( expected_arr_ptr[i], ((struct test_obj *)arr_ptr_dynamic[i])->str,
                                           "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
 
             /*int len = strlen(expected_arr_ptr[i]);

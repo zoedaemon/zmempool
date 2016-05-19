@@ -175,6 +175,19 @@ int main(int argc, char *argv[]) {
 	zMemPool_print_all_field();
 */
 
+
+	//char *err = zMemPool_init(1000000000000, 1);
+/*
+	char *err = zMemPool_init(1000000000, 1);
+
+	if (err != NULL) {
+		fprintf(stderr,"Terjadi kesalahan : %s", err);
+		exit(1);
+	}else
+		fprintf(stdout,"INISIALISASI AWAL BERHASIL BROOOHhh : %p\n", zMemPool_get_start_pointer());
+*/
+
 return zMemPool_Test_all(NULL);
+//return 0;
 }
 
