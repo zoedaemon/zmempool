@@ -211,6 +211,25 @@ return pointing->current_start_pointer;
 
 
 
+
+
+//gunakan operasi _NumOfElements * size_t _SizeOfElements
+void *__cdecl zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements)
+{
+      //if _NumOfElements == 0 ??? look some linux man page :D
+      return zMemPool_malloc( _NumOfElements * _SizeOfElements);
+}
+
+//GROW: free segment lama dan reservasi blog memory lebih besar d akhir (zMemPool*)->end_pointer
+//SHRINK: free bagian segment lama yg berkurang dan segment tetap pada blog memory yg sama
+void *__cdecl zMemPool_realloc(void *_Memory,size_t _NewSize);
+
+
+
+/////////////// zMemPool_free implementation (internal function + 1 public function)
+
+
+
 /*
 cara 1 :
 hapus data pd segment yg d free, kosongkan pointer dan tandai sedang kosong, slot kosong benar2 dihapus dan realloc zMemPool
@@ -236,17 +255,45 @@ struct LinkListFreedMem {
 NOTE : apa perlu thread terpisah tuk mengurutkan link list ? ato tambah operasi link list prepend append yg terurut, perlu (TODO) test case
 	zMemPool_malloc	dan zMemPool_free bersamaan d dalam loop, jika pake threads apakah aman d dlm loop ?
 */
-void __cdecl zMemPool_free(void *_Memory);
-
-
-//gunakan operasi _NumOfElements * size_t _SizeOfElements
-void *__cdecl zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements)
+void __cdecl zMemPool_free(void *_Memory)
 {
-      //if _NumOfElements == 0 ??? look some linux man page :D
-      return zMemPool_malloc( _NumOfElements * _SizeOfElements);
+
+
+	/// \todo reuse dari link list
+	struct segment_header *pointing = (struct segment_header *)(_Memory - sizeof(struct segment_header));
+
+	pointing->freed = 0x1;//tandai segment SEDANG di-free
+
+/*
+	fprintf(stdout,"segment_header : %p\n", real_start);
+	fprintf(stdout,"segment_header->current_start_pointer : %p\n", real_start->current_start_pointer);
+	fprintf(stdout,"segment_header->reserved_size : %d\n", real_start->reserved_size);
+	fprintf(stdout,"segment_header->freed : %d\n", real_start->freed);
+	fprintf(stdout,"segment_header->next_segment : %p\n", real_start->next_segment);
+
+	//sediakan jarak untuk penempatan data
+	/// \bug:<17.54.13.05.16> segmentation fault coz memory out of boundary, pdahal cuman cek aza tp dah error; (zMemPool_alloc_size_t)1000000000000000
+	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA)
+		>= _mempool->end_pointer) {
+		return ALLOCATION_FAILED;
+	}
+	pointing->current_start_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) +
+									SEGMENT_HEADER_GAP_TO_DATA;
+
+	//OLD
+	//pointing->current_end_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) + size_of +
+	//		((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
+
+	pointing->reserved_size = size_of;
+	pointing->freed = 0x0;//tandai segment blum pernah di-free
+
+
+      struct segment_header_freed{
+	void *left;
+	void *right;
+	void *segment_address; ///< pointer ke [struct segment_header *] yg di free
+	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
+	size_t  segment_size;
+
+*/
 }
-
-//GROW: free segment lama dan reservasi blog memory lebih besar d akhir (zMemPool*)->end_pointer
-//SHRINK: free bagian segment lama yg berkurang dan segment tetap pada blog memory yg sama
-void *__cdecl zMemPool_realloc(void *_Memory,size_t _NewSize);
-

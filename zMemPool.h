@@ -26,6 +26,8 @@ void *zMemPool_malloc(size_t size_of);
 
 void *zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements);
 
+void zMemPool_free(void *_Memory);
+
 void *zMemPool_get_start_pointer(void);
 
 char *zMemPool_print_all_field(void);
