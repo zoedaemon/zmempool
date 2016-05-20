@@ -96,7 +96,7 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
             size = (unsigned long long int)(INT_MAX - 100) & 0xfffffffc;
             fprintf(stderr,"size : %ld\n", size);
       }
-      long long int i_test_alloc = 0, max_test_alloc = 1000000000;
+      long long int i_test_alloc = 0, max_test_alloc = 3000000000;
 
 
 	if ( (_mempool = (struct zMempool *)malloc( sizeof(struct zMemPool))) == NULL ) {
@@ -176,6 +176,7 @@ return NULL;
 
 char *zMemPool_print_segment_header(void *start)
 {
+      //TODO: blum dikurangin dengan SEGMENT_HEADER_GAP_TO_DATA
 	struct segment_header *real_start = (struct segment_header *) (start - sizeof(struct segment_header));
 
 	fprintf(stdout,"segment_header : %p\n", real_start);
@@ -186,24 +187,29 @@ char *zMemPool_print_segment_header(void *start)
 return NULL;
 }
 
+
+
 void *zMemPool_get_start_pointer(void)
 {
 	return _mempool->start_pointer;
 }
 
+
+
 void *zMemPool_malloc(size_t size_of)
 {
 	/// \todo reuse dari link list
 	struct segment_header *pointing = _mempool->current_end_pointer;
+      int gap = _mempool->gap;// ((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
 
 	//sediakan jarak untuk penempatan data
 	/// \bug:<17.54.13.05.16> segmentation fault coz memory out of boundary, pdahal cuman cek aza tp dah error; (zMemPool_alloc_size_t)1000000000000000
-	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA)
+	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + gap)
 		>= _mempool->end_pointer) {
 		return ALLOCATION_FAILED;
 	}
-	pointing->current_start_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) +
-									SEGMENT_HEADER_GAP_TO_DATA;
+	pointing->current_start_pointer = _mempool->current_end_pointer +
+                                          sizeof(struct segment_header) + gap;
 
 	//OLD
 	//pointing->current_end_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) + size_of +
@@ -217,8 +223,8 @@ void *zMemPool_malloc(size_t size_of)
 	//pindah ke next address
 	//penjumlahan dengan gap d lakukan d sini
 	void *end = pointing->current_start_pointer + sizeof(struct segment_header) +
-									SEGMENT_HEADER_GAP_TO_DATA + size_of +
-										((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
+                  gap + size_of ;
+
 	//Fail to check
 	if ((char*)end >= (char*)_mempool->end_pointer) {
 		return ALLOCATION_FAILED;
@@ -229,7 +235,7 @@ void *zMemPool_malloc(size_t size_of)
 	pointing->next_segment = _mempool->current_end_pointer;
 
 	_mempool->n_segment++;
-	_mempool->current_size += sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA + size_of + ((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
+	_mempool->current_size += sizeof(struct segment_header) + gap + size_of ;
 
 	///\todo: realloc jika zMemPool-size exausted
 
@@ -241,16 +247,55 @@ return pointing->current_start_pointer;
 
 
 //gunakan operasi _NumOfElements * size_t _SizeOfElements
-void *__cdecl zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements)
+void *__cdecl zMemPool_calloc(size_t num_of_elm,size_t size_of_elm)
 {
       //if _NumOfElements == 0 ??? look some linux man page :D
-      return zMemPool_malloc( _NumOfElements * _SizeOfElements);
+      return zMemPool_malloc( num_of_elm * size_of_elm);
 }
 
 //GROW: free segment lama dan reservasi blog memory lebih besar d akhir (zMemPool*)->end_pointer
 //SHRINK: free bagian segment lama yg berkurang dan segment tetap pada blog memory yg sama
 void *__cdecl zMemPool_realloc(void *_Memory,size_t _NewSize);
 
+
+//gunakan operasi _NumOfElements * size_t _SizeOfElements
+void *zMemPool_get_header(void *ptr)
+{
+      return (struct segment_header *) (ptr - sizeof(struct segment_header));
+}
+
+//gunakan operasi _NumOfElements * size_t _SizeOfElements
+// @param data_ptr pointer yang ingin dicek
+// @param size_of_elm ukuran data yg disimpan di pointer yg ingin dibandingkan
+// @param retval 1 berarti alamat pointer sama, 2 berarti alamat pointer sama dan data di dalamnya sama
+// @return nilai alamat yang ditemukan, jika tidak ditemukan akan mengembalikan nilai NULL
+void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retval)
+{
+      struct segment_header *iterator = (struct segment_header *) _mempool->start_pointer;
+      struct segment_header *iterator_next = iterator->next_segment;
+      //fprintf(stderr,"\ndata_ptr: %p (%d)", data_ptr, size_of_elm);
+
+      //iterasi dari awal start pointer
+      while (iterator < _mempool->current_end_pointer) {
+            //fprintf(stderr,"\ncurrent_data_ptr: %p", iterator->current_start_pointer);
+            if (iterator->current_start_pointer == data_ptr) {
+                  if (memcmp(iterator->current_start_pointer, data_ptr, size_of_elm) == 0) {
+                        if (retval != NULL)
+                              *retval = 2;
+                        return iterator->current_start_pointer;
+                  }
+                  if (retval != NULL)
+                        *retval = 1;
+                  return iterator->current_start_pointer;
+            }
+            //zMemPool_print_segment_header(iterator);
+            //goto next segment
+            iterator = iterator_next;
+            iterator_next = iterator->next_segment;
+      }
+
+      return NULL;
+}
 
 
 /////////////// zMemPool_free implementation (internal function + 1 public function)

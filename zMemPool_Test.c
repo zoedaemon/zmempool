@@ -11,8 +11,8 @@
 #define TEST_CAPTION 	"##########################################################################" \
 						" \nTEST CASE : \n"
 //#define ALLOC_SIZE	(zMemPool_alloc_size_t)100000000000000 //GAK OVERFLOW d windows with 3 Gb memory fisik :D
-//#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000 ///BUG untuk size ini di test zMemPool_Test_2 (WINDOWS)
-#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000///BUG safe max size
+//#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000 //DONE ALLOCATION FAILED untuk size ini, di test zMemPool_Test_2 (WINDOWS)
+#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000///NOTE: safe max size
 
 
 void zMemPool_Test_1(void)
@@ -45,7 +45,7 @@ void zMemPool_Test_2(void)
 	char *to_copy = "INI BUDI COYYYYYYYYYYYY";
 	char *expected = "INI BUDI COYYYYYYYYYYYY";
 	char *copystring = zMemPool_malloc(sizeof(char) * 3);//SIZEnya ?
-	void *start = copystring;
+
 	strcpy(copystring, to_copy); //akan kepenggal oleh alokasi selanjunya coz zMemPool_malloc cuman 10 slot aza
 	fprintf(stdout,"String in MemPool : %s\n\n", copystring);
 
@@ -150,11 +150,13 @@ void zMemPool_Test_4(void)
 	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
 
 	//****BEGIN TEST
-	int i;
+	int i, retval=0;
+	void *return_ptr = NULL;
 	struct test_obj {
 	      int str;
 	      int uniqid;
 	};
+
       void **arr_ptr_dynamic = zMemPool_calloc(10, sizeof(struct test_obj *));
       void *to_copy_arr_ptr[] = {"akddjfkl", "kskalssad", "doasip[asdop", "poaihskdbas",
                                     "oiasd0-39o", "aslkdjja0-pe", "daposihdausi", "e392ueids[s'", "a7yweuhjsd", "82ioiwasol"};
@@ -170,6 +172,7 @@ void zMemPool_Test_4(void)
             //alokasi main struct->string
             int len = strlen(to_copy_arr_ptr[i]);
             ((struct test_obj *)arr_ptr_dynamic[i])->str = zMemPool_malloc( sizeof(char) * len );
+
             //copy string
             strcpy(((struct test_obj *)arr_ptr_dynamic[i])->str, to_copy_arr_ptr[i]);
             //copy integer
@@ -182,20 +185,34 @@ void zMemPool_Test_4(void)
 	}
 	fprintf(stdout,"\n");
 
-	fprintf(stdout,"compare : \n");
+      //test main pointer, is valid pointer (has valid allocated memory)
+      return_ptr = zMemPool_is_allocated(arr_ptr_dynamic, sizeof(struct test_obj), &retval);
+      fprintf(stderr,"\nzMemPool_is_allocated: %p (%d)\n", return_ptr, retval);
+      TEST_ASSERT_EQUAL_MEMORY_MESSAGE(return_ptr, arr_ptr_dynamic, sizeof(struct test_obj),
+                                       "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
+
+	fprintf(stdout,"compare data : \n");
 	for (i=0; i < 10; i++) {
             if ( strcmp(((struct test_obj *)arr_ptr_dynamic[i])->str, expected_arr_ptr[i]) == 0) {
                   fprintf(stdout,"<<<<<<<<<< Copy data berhasil >>>>>>>>>>\n");
             }
-            //TEST_ASSERT( strcmp(copystring, "INI BUDI COYYYYYYYYYYYY") == 0 ); //this one will pass
+            //cek apakah data string sama semuanya
             TEST_ASSERT_EQUAL_STRING_MESSAGE( expected_arr_ptr[i], ((struct test_obj *)arr_ptr_dynamic[i])->str,
                                           "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
+            //cek apakah data integer sama
+            TEST_ASSERT_EQUAL_INT_MESSAGE( expected_arr_int[i], ((struct test_obj *)arr_ptr_dynamic[i])->uniqid,
+                                          "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
 
-            /*int len = strlen(expected_arr_ptr[i]);
-            TEST_ASSERT_EQUAL_MEMORY_MESSAGE(expected_arr_ptr[i], arr_ptr_dynamic[i], len,
+            //test apakah data pointer sama ukurannya
+            return_ptr = zMemPool_is_allocated(arr_ptr_dynamic[i], sizeof(struct test_obj), &retval);
+            fprintf(stderr,"zMemPool_is_allocated: %p (%d)\n",return_ptr, retval);
+            TEST_ASSERT_EQUAL_MEMORY_MESSAGE(return_ptr, arr_ptr_dynamic[i], sizeof(struct test_obj),
                                              "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
-            */
+
 	}
+
+
+
 	zMemPool_print_all_field();
 	fprintf(stdout,"\n");
 	//**** END TEST

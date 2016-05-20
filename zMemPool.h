@@ -37,11 +37,13 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap);
 
 void *zMemPool_malloc(size_t size_of);
 
-void *zMemPool_calloc(size_t _NumOfElements,size_t _SizeOfElements);
+void *zMemPool_calloc(size_t num_of_elm,size_t size_of_elm);
 
 void zMemPool_free(void *_Memory);
 
 void *zMemPool_get_start_pointer(void);
+
+void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retval);
 
 char *zMemPool_print_all_field(void);
 
