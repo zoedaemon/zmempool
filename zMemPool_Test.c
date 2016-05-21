@@ -208,7 +208,6 @@ void zMemPool_Test_4(void)
             fprintf(stderr,"zMemPool_is_allocated: %p (%d)\n",return_ptr, retval);
             TEST_ASSERT_EQUAL_MEMORY_MESSAGE(return_ptr, arr_ptr_dynamic[i], sizeof(struct test_obj),
                                              "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
-
 	}
 
 
@@ -216,6 +215,20 @@ void zMemPool_Test_4(void)
 	zMemPool_print_all_field();
 	fprintf(stdout,"\n");
 	//**** END TEST
+}
+
+
+
+
+void zMemPool_Test_5(void)
+{
+	char *TestFunc = "zMemPool_Test_4";
+	char *TestDetail = "test alokasi dengan fungsi zMemPool_calloc untuk pointers of struct";
+	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
+
+	//****BEGIN TEST
+
+      //**** END TEST
 }
 
 int zMemPool_Test_all(void *parms)
