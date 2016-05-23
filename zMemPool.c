@@ -27,6 +27,8 @@
 
 #include "zMemPool.h"
 
+
+
 /**
 	@brief
 	Tiap alokasi memori akan membentuk segment baru, #segment adalah struktur
@@ -44,6 +46,7 @@ struct segment_header{
 };
 
 
+
 /**
 @brief
 freed adalah double linked list yg perlu menshorting listnya berdasarkan #segment_size.
@@ -59,6 +62,8 @@ struct segment_header_freed{
 	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
 	size_t  segment_size;
 };
+
+
 
 /**
 	@brief
@@ -83,6 +88,7 @@ struct zMemPool {
 };
 
 
+
 /**
 @brief menggunakan alokasi global, hnya satu object ini yg digunakan untuk
 keseluruhan program
@@ -94,7 +100,6 @@ keseluruhan program
       mencegah bug:<17.54.13.05.16>
 */
 struct zMemPool *_mempool;
-
 
 
 
@@ -175,6 +180,8 @@ char *zMemPool_print_all_field(void)
 return NULL;
 }
 
+
+
 /**
       \note: WANING if #limit exceed nonallocated memory it can causing
       segmentation fault
@@ -189,6 +196,7 @@ char *zMemPool_print_all_mem(int limit)
 
 return NULL;
 }
+
 
 
 char *zMemPool_print_segment_header(void *start)
@@ -264,8 +272,6 @@ return pointing->current_start_pointer;
 
 
 
-
-
 //gunakan operasi _NumOfElements * size_t _SizeOfElements
 void *__cdecl zMemPool_calloc(size_t num_of_elm,size_t size_of_elm)
 {
@@ -273,9 +279,12 @@ void *__cdecl zMemPool_calloc(size_t num_of_elm,size_t size_of_elm)
       return zMemPool_malloc( num_of_elm * size_of_elm);
 }
 
+
+
 //GROW: free segment lama dan reservasi blog memory lebih besar d akhir (zMemPool*)->end_pointer
 //SHRINK: free bagian segment lama yg berkurang dan segment tetap pada blog memory yg sama
 void *__cdecl zMemPool_realloc(void *_Memory,size_t _NewSize);
+
 
 
 //gunakan operasi _NumOfElements * size_t _SizeOfElements
@@ -284,6 +293,7 @@ void *zMemPool_get_header(void *ptr)
 {
       return (struct segment_header *) (ptr - sizeof(struct segment_header) - _mempool->gap);
 }
+
 
 
 /**
@@ -322,7 +332,6 @@ void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retva
 
       return NULL;
 }
-
 
 
 
@@ -373,9 +382,6 @@ return NULL;
 
 
 /////////////// zMemPool_free implementation
-
-
-
 /*
 cara 1 :
 hapus data pd segment yg d free, kosongkan pointer dan tandai sedang kosong,
@@ -443,9 +449,6 @@ void *__cdecl zMemPool_free(void *memory_ptr)
             new_node->right = NULL;
             _mempool->segment_header_end = new_node;
       }
-
-
-
 
 /*
 	fprintf(stdout,"segment_header : %p\n", real_start);
