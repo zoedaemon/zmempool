@@ -39,7 +39,7 @@ struct segment_header{
 	void *current_start_pointer;
 	size_t reserved_size;
 	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
-	short freed : 1;
+	unsigned short freed : 1;
 	struct segment *next_segment;
 };
 
@@ -54,6 +54,7 @@ object dari tipe data ini memrepresentasikan nilai segment header (indexnya aza 
 struct segment_header_freed{
 	void *left;
 	void *right;
+	//todo : harus explisit tipe data !!!
 	void *segment_address; ///< pointer ke [struct segment_header *] yg di free
 	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
 	size_t  segment_size;
@@ -77,8 +78,8 @@ struct zMemPool {
 	zMemPool_alloc_size_t total_size_t;///< total memori yg ditampung zMemPool
 	size_t current_size;///< total memori yg ditampung zMemPool
 	int gap; //jarak per segment WARNING : bisa mempengaruhi segment lain
-	void *segment_header_start;/// \todo: hapus ini
-	void *segment_header_end;/// \todo: hapus ini
+	void *segment_header_start;
+	void *segment_header_end;
 };
 
 
@@ -109,8 +110,8 @@ char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
             size = (unsigned long long int)(INT_MAX - 100) & 0xfffffffc;
             fprintf(stderr,"size : %ld\n", size);
       }
-      long long int i_test_alloc = 0, max_test_alloc = 3000000000;
-
+      long long int i_test_alloc = 0;
+      long long int max_test_alloc = 3000000000UL;
 
 	if ( (_mempool = (struct zMempool *)malloc( sizeof(struct zMemPool))) == NULL ) {
 		return ALLOCATION_FAILED;
@@ -171,11 +172,13 @@ char *zMemPool_print_all_field(void)
 	fprintf(stdout,"_mempool->current_end_pointer : %p\n", _mempool->current_end_pointer);
 	fprintf(stdout,"_mempool->end_pointer : %p\n", _mempool->end_pointer);
 	fprintf(stdout,"_mempool->current_size : %d\n", _mempool->current_size);
-
-
 return NULL;
 }
 
+/**
+      \note: WANING if #limit exceed nonallocated memory it can causing
+      segmentation fault
+*/
 char *zMemPool_print_all_mem(int limit)
 {
 	int i;
@@ -191,8 +194,7 @@ return NULL;
 char *zMemPool_print_segment_header(void *start)
 {
       //TODO: blum dikurangin dengan SEGMENT_HEADER_GAP_TO_DATA
-	struct segment_header *real_start =
-            (struct segment_header *) (start - sizeof(struct segment_header));
+	struct segment_header *real_start = (struct segment_header *)zMemPool_get_header(start);
 
 	fprintf(stdout,"segment_header : %p\n", real_start);
 	fprintf(stdout,"segment_header->current_start_pointer : %p\n", real_start->current_start_pointer);
@@ -277,9 +279,10 @@ void *__cdecl zMemPool_realloc(void *_Memory,size_t _NewSize);
 
 
 //gunakan operasi _NumOfElements * size_t _SizeOfElements
+//TODO: private ?
 void *zMemPool_get_header(void *ptr)
 {
-      return (struct segment_header *) (ptr - sizeof(struct segment_header));
+      return (struct segment_header *) (ptr - sizeof(struct segment_header) - _mempool->gap);
 }
 
 
@@ -321,7 +324,55 @@ void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retva
 }
 
 
-/////////////// zMemPool_free implementation (internal function + 1 public function)
+
+
+void *zMemPool_destroy(void)
+{
+
+}
+
+
+
+/**
+ @brief cetak segment yang sudah di free sebelumnya
+ @param data_ptr pointer yang ingin dicek
+ @param size_of_elm ukuran data yg disimpan di pointer yg ingin dibandingkan
+ @param retval 1 berarti alamat pointer sama, 2 berarti alamat pointer sama dan data di dalamnya sama
+ @return nilai alamat yang ditemukan, jika tidak ditemukan akan mengembalikan nilai NULL
+ \todo: buat pake callback function biar dinamis user bisa print dengan caranya sendiri
+ tapi jika callback function sama dengan NULL panggil fungsi default untuk mencetaknya
+*/
+char *zMemPool_print_free_segments(void)
+{
+      if (_mempool->segment_header_start == NULL) {
+            return NULL_POINTER;
+      }
+      struct segment_header_freed *iterator = (struct segment_header *) _mempool->segment_header_start;
+      struct segment_header *iterator_next = iterator->right;
+      fprintf(stderr,"\nFree Nodes : \n");
+
+      //iterasi dari awal start pointer
+      while (iterator != NULL) {
+
+            //print some pointer's pointed address
+            fprintf(stderr,"\n(segment_header_freed *): %p", iterator);
+            fprintf(stderr,"\n(segment_header_freed *)->segment_size: %d", iterator->segment_size);
+            fprintf(stderr,"\n(segment_header_freed *)->segment_address : %p\n",
+                    ((struct segment_header *)iterator->segment_address)->current_start_pointer);
+            //print segments
+            zMemPool_print_segment_header(((struct segment_header *)iterator->segment_address)->current_start_pointer);
+            //goto next segment
+            iterator = iterator_next;
+            if (iterator != NULL)
+                  iterator_next = iterator->right;
+      }
+
+return NULL;
+}
+
+
+
+/////////////// zMemPool_free implementation
 
 
 
@@ -354,16 +405,47 @@ struct LinkListFreedMem {
 NOTE : apa perlu thread terpisah tuk mengurutkan link list ? ato tambah operasi
       link list prepend append yg terurut, perlu (TODO) test case zMemPool_malloc
       dan zMemPool_free bersamaan d dalam loop, jika pake threads apakah aman d dlm loop ?
+
+\todo : reusable node, gak perlu allocate node jika masih ada node kosong ada
 */
-void __cdecl zMemPool_free(void *_Memory)
+void *__cdecl zMemPool_free(void *memory_ptr)
 {
+      struct segment_header *segment_header = (struct segment_header *) zMemPool_get_header(memory_ptr);
+      struct segment_header_freed *new_node;
+
+      if (segment_header == NULL)
+            return INVALID_MEMORY_ADDRESS;
+
+      if ( (new_node = malloc(sizeof(struct segment_header_freed))) == NULL )
+            return ALLOCATION_FAILED;
+
+      //tandai segment SEDANG di-free
+      segment_header->freed = 0x1;
+      //hapus konten lama
+      memset(segment_header->current_start_pointer, '\0', segment_header->reserved_size);
+
+      //simpan informasi segment
+      new_node->segment_address = segment_header;
+      new_node->segment_size = segment_header->reserved_size;
+
+      if ( _mempool->segment_header_start == NULL &&
+          _mempool->segment_header_end == NULL) {
+
+            _mempool->segment_header_start = new_node;
+            _mempool->segment_header_end = new_node;
+            new_node->left = NULL;
+            new_node->right = NULL;
+
+      }else {
+            struct segment_header_freed *old_node = _mempool->segment_header_end;
+            old_node->right = new_node;
+            new_node->left = old_node;
+            new_node->right = NULL;
+            _mempool->segment_header_end = new_node;
+      }
 
 
-	/// \todo reuse dari link list
-	struct segment_header *pointing =
-            (struct segment_header *)(_Memory - sizeof(struct segment_header));
 
-	pointing->freed = 0x1;//tandai segment SEDANG di-free
 
 /*
 	fprintf(stdout,"segment_header : %p\n", real_start);
@@ -389,12 +471,7 @@ void __cdecl zMemPool_free(void *_Memory)
 	pointing->freed = 0x0;//tandai segment blum pernah di-free
 
 
-      struct segment_header_freed{
-	void *left;
-	void *right;
-	void *segment_address; ///< pointer ke [struct segment_header *] yg di free
-	//DONE tambah "bool freed;" tuk menandai segment sedang free (sudah difree sebelumsnya)
-	size_t  segment_size;
-
 */
+
+return NULL;
 }

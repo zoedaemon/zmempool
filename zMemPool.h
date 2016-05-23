@@ -21,8 +21,9 @@
 #define SEGMENT_HEADER_GAP_TO_DATA 0
 
 /// \todo:buat fungsi cek error dengan awalan tanda tilde, UPDATE : pake fungsi Throw aza  dr unity test framework
-#define ALLOCATION_FAILED	"~01: ALLOCATION FAILED"
-
+#define ALLOCATION_FAILED	"~1: ALLOCATION FAILED"
+#define INVALID_MEMORY_ADDRESS	"~2: INVALID MEMORY ADDRESS"
+#define NULL_POINTER          "~3: NULL POINTER"
 
 /**
 \todo: max-nya adalah sepanjang2nya nilai yg bisa d tampung d tipe data ini, klo memori mencukupi tetap teralokasi,
@@ -39,9 +40,11 @@ void *zMemPool_malloc(size_t size_of);
 
 void *zMemPool_calloc(size_t num_of_elm,size_t size_of_elm);
 
-void zMemPool_free(void *_Memory);
+void *zMemPool_free(void *memory_ptr);
 
 void *zMemPool_get_start_pointer(void);
+
+void *zMemPool_get_header(void *ptr);
 
 void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retval);
 
@@ -50,4 +53,7 @@ char *zMemPool_print_all_field(void);
 char *zMemPool_print_all_mem(int limit);
 
 char *zMemPool_print_segment_header(void *start);
+
+char *zMemPool_print_free_segments(void);
+
 #endif

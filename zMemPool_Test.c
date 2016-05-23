@@ -10,7 +10,27 @@
 
 #define TEST_CAPTION 	"##########################################################################" \
 						" \nTEST CASE : \n"
+
+/// \bug:perlu realloc jika max size sudah tercapai !!!
+/*
+PROPOSED :
+      ubah object zMemPool utama "struct zMemPool *_mempool;" jadi pointer to pointer
+      "struct zMemPool **_mempool;" hal ini bertujuan jika max size sudah tercapai
+      maka index bisa naik ke slot berikutnya yang masih kosong. Efeknya apakah
+      semua logic yg ada di semua fungsi harus berubah ? kyknya cuman perlu index
+      khusus untuk menunjukkan _mempool mana yang sedang aktif (_mempool[i]) dan
+      gunakan flags deprecated tuk fungsi lama yang menggunakan single _mempool
+      (misalnya zMemPool_malloc_deprecated)
+TODO :
+      lakukan perubahan ini untuk versi major 1.0.0, untuk pengembangan versi 0.*.*
+      dan diatasnya (versi 0.1.0 < 1.0.0) bisa tetap terus dilanjutkan parallel
+      dengan pengembangan versi 1.*.*
+*/
+//#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000
+
+
 //#define ALLOC_SIZE	(zMemPool_alloc_size_t)100000000000000 //GAK OVERFLOW d windows with 3 Gb memory fisik :D
+//#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000000 //bug:<17.54.13.05.16> harus dihapus pada commit selanjutnya
 //#define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000000 //DONE ALLOCATION FAILED untuk size ini, di test zMemPool_Test_2 (WINDOWS)
 #define ALLOC_SIZE	(zMemPool_alloc_size_t)1000000000///NOTE: safe max size
 
@@ -222,12 +242,56 @@ void zMemPool_Test_4(void)
 
 void zMemPool_Test_5(void)
 {
-	char *TestFunc = "zMemPool_Test_4";
-	char *TestDetail = "test alokasi dengan fungsi zMemPool_calloc untuk pointers of struct";
+	char *TestFunc = "zMemPool_Test_5";
+	char *TestDetail = "test dealokasi dengan fungsi zMemPool_free :D";
 	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
 
 	//****BEGIN TEST
+	int i;
+      void **arr_ptr_dynamic = zMemPool_calloc(10, sizeof(void *));
+      void *to_copy_arr_ptr[] = {"1234", "123456", "123", "12345678",
+                              "1", "123", "1234567890", "123456789012345", "12", "123456"};
+      void *expected_arr_ptr[] = {"1234", "123456", "123", "12345678",
+                              "1", "123", "1234567890", "123456789012345", "12", "123456"};
+      //start from i+1 (i==1) TODO : cek memset berhasil tuk menset nilai null tuk slot
+      //    dengan index berikut ini (untuk memeriksa apakah fungsi zMemPool_free berhasil)
+      int index_arr_to_free[] = {2, 6, 7, 9, 10};
+      //data pengganti yang udah d free sebelumnya dan diisikan lg dengan zMemPool_malloc
+      //RESULT : harus semua arr_replace mengisi kembali slot array yang di-free
+      void *arr_replace[] = {"abc", "abcdef", "abcdefghij", "ab", "abcdef"};
 
+	fprintf(stdout,"init : ");
+	for (i=0; i < 10; i++) {
+            int len = strlen(to_copy_arr_ptr[i]);
+            arr_ptr_dynamic[i] = zMemPool_malloc( sizeof(char) * len);
+            strcpy(arr_ptr_dynamic[i], to_copy_arr_ptr[i]);
+            fprintf(stdout,"%s, \n", (char *) arr_ptr_dynamic[i]);
+            zMemPool_print_segment_header(arr_ptr_dynamic[i]);
+	}
+	fprintf(stdout,"\n");
+
+	fprintf(stdout,"compare : \n");
+	for (i=0; i < 10; i++) {
+            //TEST_ASSERT( strcmp(copystring, "INI BUDI COYYYYYYYYYYYY") == 0 ); //this one will pass
+            TEST_ASSERT_EQUAL_STRING_MESSAGE(expected_arr_ptr[i], arr_ptr_dynamic[i],
+                                          "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
+            int len = strlen(expected_arr_ptr[i]);
+            TEST_ASSERT_EQUAL_MEMORY_MESSAGE(expected_arr_ptr[i], arr_ptr_dynamic[i], len,
+                                             "XXXXXXXXXX Copy data TIDAK berhasil XXXXXXXXXX\n");
+	}
+	zMemPool_print_all_field();
+
+      //char *err = zMemPool_print_free_segments();
+      //fprintf(stderr,"\n\nXXXXXXXXXX %s XXXXXXXXXX ", err);
+
+      for (i=0; i < 5; i++) {
+            zMemPool_free(arr_ptr_dynamic[i]);
+      }
+
+      zMemPool_print_free_segments();
+
+
+	fprintf(stdout,"\n");
       //**** END TEST
 }
 
@@ -238,6 +302,7 @@ int zMemPool_Test_all(void *parms)
 	RUN_TEST(zMemPool_Test_2);
       RUN_TEST(zMemPool_Test_3);
       RUN_TEST(zMemPool_Test_4);
+      RUN_TEST(zMemPool_Test_5);
 
 	/**
 	\note : UnityEnd akan mengembalikan nilai kembalian yg sama dengan jumlah test yg gagal
