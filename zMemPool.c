@@ -103,6 +103,21 @@ struct zMemPool *_mempool;
 
 
 
+/// *****  \todo: DECLARE PRIVATE FUNCTION HERE
+
+
+
+/**
+ @brief inisialisasi zMemPool, menggunakan calloc supaya alokasi memori langsung
+ tersedia supaya pada proses zMemPool_malloc dan zMemPool_calloc tidak ada lagi
+ alokasi memori tambahan
+ @param size : ukuran maksimal memory pool
+ @param gap : ukuran jarak (dalam bytes) antar alokasi. Bentuk umum memori pool
+ yang diimplementasikan zMemPool adalah : header1-gap-datablock1-header2-gap-datablock2
+ @return NULL jika tidak ada error terjadi, static string jika ada kesalahan, misal
+ ALLOCATION_FAILED adalah string "~1: ALLOCATION FAILED", karena static JANGAN
+ di-free
+*/
 char *zMemPool_init(zMemPool_alloc_size_t size, int gap)
 {
       //absolute size (jika minus harus dipositifkan)
@@ -177,6 +192,8 @@ char *zMemPool_print_all_field(void)
 	fprintf(stdout,"_mempool->current_end_pointer : %p\n", _mempool->current_end_pointer);
 	fprintf(stdout,"_mempool->end_pointer : %p\n", _mempool->end_pointer);
 	fprintf(stdout,"_mempool->current_size : %d\n", _mempool->current_size);
+	fprintf(stdout,"_mempool->segment_header_start : %p\n", _mempool->segment_header_start);
+	fprintf(stdout,"_mempool->segment_header_end : %d\n", _mempool->segment_header_end);
 return NULL;
 }
 
@@ -335,6 +352,16 @@ void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retva
 
 
 
+int zMemPool_is_freed(void *ptr)
+{
+      if (ptr == NULL)
+            return INVALID_MEMORY_ADDRESS_INT;
+      struct segment_header *segment_header = (struct segment_header *) zMemPool_get_header(ptr);
+return segment_header->freed;
+}
+
+
+
 void *zMemPool_destroy(void)
 {
 
@@ -443,38 +470,106 @@ void *__cdecl zMemPool_free(void *memory_ptr)
             new_node->right = NULL;
 
       }else {
+            /*
+            DIRECT ADD TO END (append)
             struct segment_header_freed *old_node = _mempool->segment_header_end;
             old_node->right = new_node;
             new_node->left = old_node;
             new_node->right = NULL;
             _mempool->segment_header_end = new_node;
+            */
+
+            /*
+            SORTED : start from Start and End (dual iterator)
+            todo : need mutex
+            */
+            //function helper
+            void _append (struct segment_header_freed **new_node,
+                         struct segment_header_freed **old_node,
+                         struct segment_header_freed **prev)
+            {
+                  (*old_node)->right = *new_node;
+                  (*new_node)->left = *old_node;
+                  (*new_node)->right = *prev;
+                  if (*prev != NULL)
+                        (*prev)->left = *new_node;
+            }
+
+
+            void _prepend (struct segment_header_freed **new_node,
+                         struct segment_header_freed **old_node,
+                         struct segment_header_freed **prev)
+            {
+                  (*old_node)->left = *new_node;
+                  (*new_node)->right = *old_node;
+                  (*new_node)->left = *prev;
+                  if (*prev != NULL)
+                        (*prev)->right = *new_node;
+            }
+
+
+            int success = 0;
+            struct segment_header_freed *old_node_right = _mempool->segment_header_end;
+            struct segment_header_freed *old_node_left = _mempool->segment_header_start;
+            struct segment_header_freed *old_node_right_prev = old_node_right->right;
+            struct segment_header_freed *old_node_left_prev = old_node_right->left;
+
+            //TODO : pass by reference tuk mencegah duplikasi statement panjang di bawah ini
+            //int do_node_manipulation (void)
+            //{
+            //}
+
+            while (old_node_right->segment_size >= old_node_left->segment_size) {
+
+                  if (new_node->segment_size >= old_node_right->segment_size) {
+                        //DO APPEND
+                        _append (&new_node, &old_node_right, &old_node_right_prev);
+                        if (old_node_right == _mempool->segment_header_end)
+                              _mempool->segment_header_end = new_node;//pointing to new end
+                        success = 1;
+                        break;
+                  }else {
+                        old_node_right_prev = old_node_right;
+                        old_node_right = old_node_right->left; //move to the left
+                  }
+
+                  if (new_node->segment_size <= old_node_left->segment_size) {
+                        //DO PREPEND
+                        _prepend (&new_node, &old_node_left, &old_node_left_prev);
+                        if (old_node_left == _mempool->segment_header_start)
+                              _mempool->segment_header_start = new_node;//pointing to new end
+                        success = 1;
+                        break;
+                  }else {
+                        old_node_left_prev = old_node_left;
+                        old_node_left = old_node_left->right; //move to the right
+                  }
+
+            }
+
+
+
+            if (success != 1) {
+                  if (new_node->segment_size >= old_node_right->segment_size) {
+                        //DO APPEND
+                        _append (&new_node, &old_node_right, &old_node_right_prev);
+                        if (old_node_right == _mempool->segment_header_end)
+                              _mempool->segment_header_end = new_node;//pointing to new end
+                  }else {
+                        old_node_right_prev = old_node_right;
+                        old_node_right = old_node_right->left; //move to the left
+                  }
+
+                  if (new_node->segment_size <= old_node_left->segment_size) {
+                        //DO PREPEND
+                        _prepend (&new_node, &old_node_left, &old_node_left_prev);
+                        if (old_node_left == _mempool->segment_header_start)
+                              _mempool->segment_header_start = new_node;//pointing to new end
+                  }else {
+                        old_node_left_prev = old_node_left;
+                        old_node_left = old_node_left->right; //move to the right
+                  }
+            }
       }
-
-/*
-	fprintf(stdout,"segment_header : %p\n", real_start);
-	fprintf(stdout,"segment_header->current_start_pointer : %p\n", real_start->current_start_pointer);
-	fprintf(stdout,"segment_header->reserved_size : %d\n", real_start->reserved_size);
-	fprintf(stdout,"segment_header->freed : %d\n", real_start->freed);
-	fprintf(stdout,"segment_header->next_segment : %p\n", real_start->next_segment);
-
-	//sediakan jarak untuk penempatan data
-	/// \bug:<17.54.13.05.16> segmentation fault coz memory out of boundary, pdahal cuman cek aza tp dah error; (zMemPool_alloc_size_t)1000000000000000
-	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + SEGMENT_HEADER_GAP_TO_DATA)
-		>= _mempool->end_pointer) {
-		return ALLOCATION_FAILED;
-	}
-	pointing->current_start_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) +
-									SEGMENT_HEADER_GAP_TO_DATA;
-
-	//OLD
-	//pointing->current_end_pointer = _mempool->current_end_pointer + sizeof(struct segment_header) + size_of +
-	//		((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
-
-	pointing->reserved_size = size_of;
-	pointing->freed = 0x0;//tandai segment blum pernah di-free
-
-
-*/
-
 return NULL;
 }
