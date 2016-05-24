@@ -186,14 +186,14 @@ char *zMemPool_print_all_field(void)
 {
 	fprintf(stdout,"_mempool : %p\n", _mempool);
 	fprintf(stdout,"_mempool->start_pointer : %p\n", _mempool->start_pointer);
-	fprintf(stdout,"_mempool->total_size_t  : %llu\n", _mempool->total_size_t );
+	fprintf(stdout,"_mempool->total_size_t  : %ld\n", _mempool->total_size_t );
 	fprintf(stdout,"_mempool->gap (segment gap) : %d\n", _mempool->gap);
 	fprintf(stdout,"_mempool->n_segment : %d\n", _mempool->n_segment);
 	fprintf(stdout,"_mempool->current_end_pointer : %p\n", _mempool->current_end_pointer);
 	fprintf(stdout,"_mempool->end_pointer : %p\n", _mempool->end_pointer);
 	fprintf(stdout,"_mempool->current_size : %d\n", _mempool->current_size);
 	fprintf(stdout,"_mempool->segment_header_start : %p\n", _mempool->segment_header_start);
-	fprintf(stdout,"_mempool->segment_header_end : %d\n", _mempool->segment_header_end);
+	fprintf(stdout,"_mempool->segment_header_end : %p\n", _mempool->segment_header_end);
 return NULL;
 }
 
@@ -325,11 +325,12 @@ void *zMemPool_get_header(void *ptr)
 void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retval)
 {
       struct segment_header *iterator = (struct segment_header *) _mempool->start_pointer;
-      struct segment_header *iterator_next = iterator->next_segment;
+      struct segment_header *iterator_next = (struct segment_header *) iterator->next_segment;
+      struct segment_header *curr_end_pointer = (struct segment_header *) _mempool->current_end_pointer;
       //fprintf(stderr,"\ndata_ptr: %p (%d)", data_ptr, size_of_elm);
 
       //iterasi dari awal start pointer
-      while (iterator < _mempool->current_end_pointer) {
+      while (iterator < curr_end_pointer) {
             //fprintf(stderr,"\ncurrent_data_ptr: %p", iterator->current_start_pointer);
             if (iterator->current_start_pointer == data_ptr) {
                   if (memcmp(iterator->current_start_pointer, data_ptr, size_of_elm) == 0) {
@@ -344,7 +345,7 @@ void *zMemPool_is_allocated(const void *data_ptr, size_t size_of_elm, int *retva
             //zMemPool_print_segment_header(iterator);
             //goto next segment
             iterator = iterator_next;
-            iterator_next = iterator->next_segment;
+            iterator_next = (struct segment_header *)iterator->next_segment;
       }
 
       return NULL;
@@ -364,7 +365,7 @@ return segment_header->freed;
 
 void *zMemPool_destroy(void)
 {
-
+return NULL;
 }
 
 
@@ -383,8 +384,8 @@ char *zMemPool_print_free_segments(void)
       if (_mempool->segment_header_start == NULL) {
             return NULL_POINTER;
       }
-      struct segment_header_freed *iterator = (struct segment_header *) _mempool->segment_header_start;
-      struct segment_header *iterator_next = iterator->right;
+      struct segment_header_freed *iterator = (struct segment_header_freed *) _mempool->segment_header_start;
+      struct segment_header_freed *iterator_next = iterator->right;
       fprintf(stderr,"\nFree Nodes : \n");
 
       //iterasi dari awal start pointer
@@ -445,6 +446,9 @@ void *__cdecl zMemPool_free(void *memory_ptr)
 {
       struct segment_header *segment_header = (struct segment_header *) zMemPool_get_header(memory_ptr);
       struct segment_header_freed *new_node;
+
+      if (memory_ptr == NULL)
+            return INVALID_MEMORY_ADDRESS;
 
       if (segment_header == NULL)
             return INVALID_MEMORY_ADDRESS;

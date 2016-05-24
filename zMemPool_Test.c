@@ -173,17 +173,17 @@ void zMemPool_Test_4(void)
 	int i, retval=0;
 	void *return_ptr = NULL;
 	struct test_obj {
-	      int str;
+	      char *str;
 	      int uniqid;
 	};
 
       void **arr_ptr_dynamic = zMemPool_calloc(10, sizeof(struct test_obj *));
       void *to_copy_arr_ptr[] = {"akddjfkl", "kskalssad", "doasip[asdop", "poaihskdbas",
                                     "oiasd0-39o", "aslkdjja0-pe", "daposihdausi", "e392ueids[s'", "a7yweuhjsd", "82ioiwasol"};
-      int *to_copy_arr_int[] = {2334, 9822, 182, 299, 1100, 99932, 312321, 111111, 444444, 345656};
+      int to_copy_arr_int[] = {2334, 9822, 182, 299, 1100, 99932, 312321, 111111, 444444, 345656};
       void *expected_arr_ptr[] = {"akddjfkl", "kskalssad", "doasip[asdop", "poaihskdbas",
                                     "oiasd0-39o", "aslkdjja0-pe", "daposihdausi", "e392ueids[s'", "a7yweuhjsd", "82ioiwasol"};
-      int *expected_arr_int[] = {2334, 9822, 182, 299, 1100, 99932, 312321, 111111, 444444, 345656};
+      int expected_arr_int[] = {2334, 9822, 182, 299, 1100, 99932, 312321, 111111, 444444, 345656};
 
 	fprintf(stdout,"init : ");
 	for (i=0; i < 10; i++) {
@@ -199,7 +199,7 @@ void zMemPool_Test_4(void)
             ((struct test_obj *)arr_ptr_dynamic[i])->uniqid = to_copy_arr_int[i];
             //show values
             fprintf(stdout,"(%s, ", (char *) ((struct test_obj *)arr_ptr_dynamic[i])->str );
-            fprintf(stdout,"%d)", (char *) ((struct test_obj *)arr_ptr_dynamic[i])->uniqid );
+            fprintf(stdout,"%d)", ((struct test_obj *)arr_ptr_dynamic[i])->uniqid );
             //if (arr_int_dynamic[i] == 8)
             //      arr_int_dynamic[i] = 100;
 	}
@@ -247,20 +247,24 @@ void zMemPool_Test_5(void)
 	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
 
 	//****BEGIN TEST
-	int i, j, max_data = 10, max_selectif = 10;
+	int i, j, max_data = 10, max_selectif = 6;
       void **arr_ptr_dynamic = zMemPool_calloc(10, sizeof(void *));
       void *to_copy_arr_ptr[] = {"1234", "123456", "123", "12345678",
                               "1", "123", "1234567890", "123456789012345", "12", "123456"};
       void *expected_arr_ptr[] = {"1234", "123456", "123", "12345678",
                               "1", "123", "1234567890", "123456789012345", "12", "123456"};
 
+      /**
+      \todo: perlu pengecekan apakah data yang di-free terurut node2nya (automatic sort n check)
+      */
       //start from i+1 (i==1) TODO : cek memset berhasil tuk menset nilai null tuk slot
       //    dengan index berikut ini (untuk memeriksa apakah fungsi zMemPool_free berhasil)
-      int index_arr_to_free[] = {2, 6, 7, 9, 10, 1, 3, 5, 4, 8};
+      //int index_arr_to_free[] = {2, 6, 7, 9, 10, 1, 3, 5, 4, 8};
+      int index_arr_to_free[] = {2, 6, 7, 9, 10, 8};
 
       //data pengganti yang udah d free sebelumnya dan diisikan lg dengan zMemPool_malloc
       //RESULT : harus semua arr_replace mengisi kembali slot array yang di-free
-      void *arr_replace[] = {"abc", "abcdef", "abcdefghij", "ab", "abcdef"};
+      void *arr_replace[] = {"abc", "abcdef", "abcdefghij", "ab", "abcdef", "abcdefgh"};
 
 	fprintf(stdout,"\ninit : ");
 	for (i=0; i < max_data; i++) {
@@ -303,8 +307,8 @@ void zMemPool_Test_5(void)
             //cek pointernya harus NULL jika sudah difree
             //TEST_ASSERT_NULL_MESSAGE( arr_ptr_dynamic[(index_arr_to_free[j]-1)],
             //      "XXXXXXXXXX block data != NULL XXXXXXXXXX\n");
-            TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE('\0',
-                  ((char *)arr_ptr_dynamic[(index_arr_to_free[j]-1)])[0], 1,
+            TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE("\0",
+                  ((char *)arr_ptr_dynamic[(index_arr_to_free[j]-1)]), 1,
                   "XXXXXXXXXX block data != NULL XXXXXXXXXX\n");
       }
 
@@ -322,16 +326,19 @@ void zMemPool_Test_5(void)
                   //fprintf(stdout,"\n---validate arr_ptr_dynamic[%d] : %d\n", i,
                   //        zMemPool_is_freed(arr_ptr_dynamic[i]));
                   //cek pointernya harus NULL jika sudah difree
-                  TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE('\0',
-                        ((char *)arr_ptr_dynamic[(index_arr_to_free[j]-1)])[0], 1,
+                  TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE("\0",
+                        ((char *)arr_ptr_dynamic[(index_arr_to_free[j]-1)]), 1,
                         "XXXXXXXXXX block data != NULL XXXXXXXXXX\n");
                   j++;
             }
 
 	}
 	zMemPool_print_all_field();
-
 	fprintf(stdout,"\n");
+
+
+
+
       //**** END TEST
 }
 
