@@ -1,3 +1,6 @@
+# jgn simpan doxygen dan file-file di dalamnya
+doxygen/html/**
+
 # Object files
 *.o
 *.O

@@ -1,9 +1,14 @@
 /**
+* zMemPool, dinamic memory pool with reusable freed memory segments (segment : pointed heap memory pool)
+*
+* Copyright (c) 2016 Zoe Daemon (Roy A.) All rights reserved.
+* Use of this source code is governed by the MIT License that can be
+* found in the LICENSE.md file.
+*
 * @brief Library for fast memory alocation  coz this lib use memory pool that you can initialized at the first before
 * your main logic program run, no need to malloc, calloc or realloc manualy that can slowdown your program, instead
 * use this memory pool library for eficiency memory pointing without actual allocation.
-* MIT
-* 2016 zoe daemon
+*
 * \todo: test :
 *	1) Malloc, realloc and free in one single loop, 1000 iteration
 *	2) Long string manipulation (test string algorithm, ex. porter stemming,
@@ -30,12 +35,11 @@
 
 
 /**
-	@brief
-	Tiap alokasi memori akan membentuk segment baru, #segment adalah struktur
-	data khusus yg menyimpan penunjuk (pointer) ke lokasi memori yg sudah
-	dialokasikan oleh fungsi zMemPool_init sebelum pemanggilan fungsi khusus
-	alokasi memory pool (zMemPool_malloc, zMemPool_calloc dan zMemPool_realloc)
-*/
+* @brief Tiap alokasi memori akan membentuk segment baru, #segment adalah struktur
+* data khusus yg menyimpan penunjuk (pointer) ke lokasi memori yg sudah
+* dialokasikan oleh fungsi zMemPool_init sebelum pemanggilan fungsi khusus
+* alokasi memory pool (zMemPool_malloc, zMemPool_calloc dan zMemPool_realloc)
+**/
 struct segment_header{
 	// \todo: perlu cek tipe sistem x86_64 apa 32 bit system
 	void *current_start_pointer;
@@ -240,18 +244,125 @@ void *zMemPool_get_start_pointer(void)
 
 void *zMemPool_malloc(size_t size_of)
 {
-	/// \todo reuse dari link list
-	struct segment_header *pointing = _mempool->current_end_pointer;
+      ///\todo: realloc jika zMemPool-size exausted
+
+      void *end_pointer_reuse_or_not = NULL;
+      int found = 0;
+      /// release node
+      //function helper
+      struct segment_header_freed *__release (struct segment_header_freed *current_node)
+      {
+            if (current_node == NULL)
+                  return NULL;
+            struct segment_header_freed *old_node_right = current_node->right;
+            struct segment_header_freed *old_node_left = current_node->left;
+
+            //mengaitkan ulang node kanan
+            if (old_node_right != NULL) {
+                  old_node_right->left = old_node_left;
+            }else{//terindikasi adalah awal node, wajib update _mempool->segment_header_end
+                  _mempool->segment_header_end = current_node->left;
+            }
+            //mengaitkan ulang node kiri
+            if (old_node_left != NULL) {
+                  old_node_left->right = old_node_right;
+            }else {//terindikasi adalah awal node, wajib update _mempool->segment_header_start
+                  _mempool->segment_header_start = current_node->right;
+            }
+
+            return current_node;
+      }
+
+
+      struct segment_header * _copy_and_free (struct segment_header_freed *current_node)
+      {
+            if (current_node == NULL)
+                  return NULL;
+            //if (*current_node == NULL)
+            //      return NULL;
+
+            //keluarkan node yg ditunjuk *current_node dari deretan link list :)
+            __release(current_node);//__release(&(*current_node));
+
+            struct segment_header *temp = (current_node)->segment_address;//ambil segment header
+            free(current_node);//bebaskan node link list \todo perlu efisiensi jika ada sisa di nodenya
+            found = 1;/// \note released == NULL gak kebaca di gcc windows, is BUG ???
+            //if (temp != NULL) //NOTE: sudah ada set flag ini setelah fungsi _reuse
+            //      temp->freed = 0;//tandai sudah bisa dipakai kembali
+      return temp;
+      }
+
+	/// \todo: reuse dari link list
+      void *_reuse(void)
+      {
+            if ( _mempool->segment_header_start == NULL ||
+                _mempool->segment_header_end == NULL) {
+                        return NULL;
+            }
+
+            struct segment_header *released = NULL;
+            struct segment_header_freed *old_node_right = _mempool->segment_header_end;
+            struct segment_header_freed *old_node_left = _mempool->segment_header_start;
+
+            if (old_node_right->segment_size < size_of ||
+                old_node_left->segment_size > size_of)
+                  return NULL;
+
+            /// \todo: test 1 node freed tuk reuse
+            while (old_node_right->segment_size >= old_node_left->segment_size) {
+                  /// \todo: optimize this ==, can use we <= or >= ???
+                  if (old_node_right->segment_size == size_of)
+                        released = _copy_and_free( old_node_right );
+                  else if (old_node_left->segment_size == size_of)
+                        released = _copy_and_free( old_node_left);
+                  else {
+                        /*
+                        ambil node di kanannya jika current old_right node
+                        sudah kurang dari size_of tuk alokasi
+                        */
+                        if (old_node_right->segment_size < size_of &&
+                            old_node_right->right != NULL)
+                              released = _copy_and_free(
+                                                (struct segment_header_freed *)
+                                                      old_node_right->right
+                                                );
+                        /*
+                        ambil node sekarang jika current old_left node
+                        sudah lebih dari size_of tuk alokasi
+                        */
+                        if (old_node_left->segment_size > size_of)
+                              released = _copy_and_free( old_node_right );
+                  }
+
+                  if (found == 1)
+                        break;
+
+                  old_node_left = old_node_left->right;
+                  old_node_right = old_node_right->left;
+            }
+
+            if (old_node_left->segment_size >= size_of && found == 0)
+                  released = _copy_and_free( old_node_left );
+
+      return (void *)released;
+      }
+
+      //cek jika ada reuse segment gunakan segment tsb jika NULL ambil pointer
+      //yg d tunjuk segment terakhir
+      if ( (end_pointer_reuse_or_not = _reuse()) == NULL  )
+            end_pointer_reuse_or_not = _mempool->current_end_pointer;
+
+	struct segment_header *pointing = end_pointer_reuse_or_not;
       int gap = _mempool->gap;// ((_mempool->n_segment - 1)==0? 0 : _mempool->gap);
 
 	//sediakan jarak untuk penempatan data
 	/// \bug:<17.54.13.05.16> segmentation fault coz memory out of boundary,...
 	//    ...pdahal cuman cek aza tp dah error; (zMemPool_alloc_size_t)1000000000000000
-	if ((_mempool->current_end_pointer + sizeof(struct segment_header) + gap)
+	if ((end_pointer_reuse_or_not + sizeof(struct segment_header) + gap)
 		>= _mempool->end_pointer) {
 		return ALLOCATION_FAILED;
 	}
-	pointing->current_start_pointer = _mempool->current_end_pointer +
+	pointing->current_start_pointer = end_pointer_reuse_or_not +
                                           sizeof(struct segment_header) + gap;
 
 	//OLD
@@ -270,19 +381,21 @@ void *zMemPool_malloc(size_t size_of)
 	void *end = pointing->current_start_pointer + sizeof(struct segment_header) +
                   gap + size_of ;
 
-	//Fail to check
-	if ((char*)end >= (char*)_mempool->end_pointer) {
-		return ALLOCATION_FAILED;
-	}else
-		_mempool->current_end_pointer = end;
 
-	//next segment, bisa untuk iterator menelusuri pointer2/segment2 yg aktif
-	pointing->next_segment = _mempool->current_end_pointer;
+      //////////// NO SEGMENT REUSE
+      if (end_pointer_reuse_or_not == _mempool->current_end_pointer) {
+            //Fail to check
+            if ((char*)end >= (char*)_mempool->end_pointer) {
+                  return ALLOCATION_FAILED;
+            }else
+                  _mempool->current_end_pointer = end;
 
-	_mempool->n_segment++;
-	_mempool->current_size += sizeof(struct segment_header) + gap + size_of ;
+            //next segment, bisa untuk iterator menelusuri pointer2/segment2 yg aktif
+            pointing->next_segment = _mempool->current_end_pointer;
 
-	///\todo: realloc jika zMemPool-size exausted
+            _mempool->n_segment++;
+            _mempool->current_size += sizeof(struct segment_header) + gap + size_of ;
+      }
 
 return pointing->current_start_pointer;
 }
@@ -394,7 +507,11 @@ char *zMemPool_print_free_segments(void)
             //print some pointer's pointed address
             fprintf(stderr,"\n(segment_header_freed *): %p", iterator);
             fprintf(stderr,"\n(segment_header_freed *)->segment_size: %d", iterator->segment_size);
-            fprintf(stderr,"\n(segment_header_freed *)->segment_address : %p\n",
+            fprintf(stderr,"\n(segment_header_freed *)->right: %p",
+                    ((struct segment_header *)iterator->right) );
+            fprintf(stderr,"\n(segment_header_freed *)->left: %p",
+                    ((struct segment_header *)iterator->left) );
+            fprintf(stderr,"\n(segment_header_freed *)->segment_address->current_start_pointer : %p\n",
                     ((struct segment_header *)iterator->segment_address)->current_start_pointer);
             //print segments
             zMemPool_print_segment_header(((struct segment_header *)iterator->segment_address)->current_start_pointer);
@@ -492,6 +609,7 @@ void *__cdecl zMemPool_free(void *memory_ptr)
                          struct segment_header_freed **old_node,
                          struct segment_header_freed **prev)
             {
+                  fprintf(stdout,"\n\n...APPEND = %d...\n\n", (*new_node)->segment_size);
                   (*old_node)->right = *new_node;
                   (*new_node)->left = *old_node;
                   (*new_node)->right = *prev;
@@ -504,6 +622,7 @@ void *__cdecl zMemPool_free(void *memory_ptr)
                          struct segment_header_freed **old_node,
                          struct segment_header_freed **prev)
             {
+                  fprintf(stdout,"\n\n...PREPEND = %d...\n\n", (*new_node)->segment_size);
                   (*old_node)->left = *new_node;
                   (*new_node)->right = *old_node;
                   (*new_node)->left = *prev;
@@ -552,7 +671,9 @@ void *__cdecl zMemPool_free(void *memory_ptr)
             }
 
 
-
+            /**
+            \todo:test bagian ini cek node-node keluarannya
+            */
             if (success != 1) {
                   if (new_node->segment_size >= old_node_right->segment_size) {
                         //DO APPEND

@@ -243,12 +243,13 @@ void zMemPool_Test_4(void)
 void zMemPool_Test_5(void)
 {
 	char *TestFunc = "zMemPool_Test_5";
-	char *TestDetail = "test dealokasi dengan fungsi zMemPool_free :D";
+	char *TestDetail = "test dealokasi dengan fungsi zMemPool_free dan segment (freed) reuse:D";
 	fprintf(stdout,"\n\n%s%s :> %s \nPROCESSING...\n\n", TEST_CAPTION, TestFunc, TestDetail);
 
 	//****BEGIN TEST
-	int i, j, max_data = 10, max_selectif = 6;
-      void **arr_ptr_dynamic = zMemPool_calloc(10, sizeof(void *));
+	int i, j, len, max_data = 10, max_selectif = 6;
+	//alokasi array of pointer tuk menampung data uji awal dan data selektif tuk uji reuse freed segment
+      void **arr_ptr_dynamic = zMemPool_calloc( max_data + max_selectif, sizeof(void *));
       void *to_copy_arr_ptr[] = {"1234", "123456", "123", "12345678",
                               "1", "123", "1234567890", "123456789012345", "12", "123456"};
       void *expected_arr_ptr[] = {"1234", "123456", "123", "12345678",
@@ -264,7 +265,8 @@ void zMemPool_Test_5(void)
 
       //data pengganti yang udah d free sebelumnya dan diisikan lg dengan zMemPool_malloc
       //RESULT : harus semua arr_replace mengisi kembali slot array yang di-free
-      void *arr_replace[] = {"abc", "abcdef", "abcdefghij", "ab", "abcdef", "abcdefgh"};
+      void *arr_replace[] = {"abc", "abcdef", "abcdefghij", "ab", "abcdef", "abcdefgh", "abcdefghijklmno"};
+
 
 	fprintf(stdout,"\ninit : ");
 	for (i=0; i < max_data; i++) {
@@ -275,6 +277,7 @@ void zMemPool_Test_5(void)
             //zMemPool_print_segment_header(arr_ptr_dynamic[i]);
 	}
 	fprintf(stdout,"\n");
+
 
 	fprintf(stdout,"\nvalidate copied data : \n");
 	for (i=0; i < max_data; i++) {
@@ -290,6 +293,7 @@ void zMemPool_Test_5(void)
 
       //char *err = zMemPool_print_free_segments();
       //fprintf(stderr,"\n\nXXXXXXXXXX %s XXXXXXXXXX ", err);
+
 
       //FREEING AND DIRECT TEST
       fprintf(stdout,"\nfreeing selectif data : \n");
@@ -314,6 +318,7 @@ void zMemPool_Test_5(void)
 
       zMemPool_print_free_segments();
 
+
       //VERBOSE TEST
       fprintf(stdout,"\n\nvalidate success freed zMemPool segments : \n");
 	j = 0;
@@ -337,7 +342,26 @@ void zMemPool_Test_5(void)
 	fprintf(stdout,"\n");
 
 
+      //REUSE FREE SEGMENTS AND DIRECT TEST
+      fprintf(stdout,"\nreuse freed segments : \n");
+      for (j=0; j < max_selectif; j++) {
 
+            //print dulu sebelum difree
+            fprintf(stdout,"allocated : %s\n", arr_replace[j] );
+            len = strlen(arr_replace[j]);
+            arr_ptr_dynamic[ max_data + j] = zMemPool_malloc( sizeof(char) * len );
+            strncpy(arr_ptr_dynamic[ max_data + j], arr_replace[j], len);
+            fprintf(stdout,"RESULT : %s\n", arr_ptr_dynamic[ max_data + j] );
+
+            TEST_ASSERT_EQUAL_STRING_LEN_MESSAGE(
+                  arr_replace[j],
+                  arr_ptr_dynamic[ max_data + j], len,
+                  "XXXXXXXXXX arr_replace[j] != NULL XXXXXXXXXX\n"
+            );
+      }
+
+
+      zMemPool_print_free_segments();
 
       //**** END TEST
 }
