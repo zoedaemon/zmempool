@@ -478,6 +478,23 @@ return segment_header->freed;
 
 void *zMemPool_destroy(void)
 {
+      struct segment_header_freed *iterator = (struct segment_header_freed *) _mempool->segment_header_start;
+      struct segment_header_freed *iterator_next = iterator->right;
+      fprintf(stderr,"\nDestroying Free Nodes...\n");
+
+      //iterasi dari awal start pointer
+      while (iterator != NULL) {
+
+            //print some pointer's pointed address
+            fprintf(stderr,"\n(segment_header_freed *): %p", iterator);
+            fprintf(stderr,"\n(segment_header_freed *)->segment_size: %d", iterator->segment_size);
+            fprintf(stderr,"\nDESTROYED");
+            //goto next segment
+            free(iterator);
+            iterator = iterator_next;
+            if (iterator != NULL)
+                  iterator_next = iterator->right;
+      }
       free(_mempool->start_pointer);
       free(_mempool);
 return NULL;
