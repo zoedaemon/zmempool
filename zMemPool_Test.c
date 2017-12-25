@@ -379,6 +379,7 @@ int zMemPool_Test_all(void *parms)
 	\note : UnityEnd akan mengembalikan nilai kembalian yg sama dengan jumlah test yg gagal
 			tampaknya dia pake fungsi exit(<num_failed_test>)
  	*/
-	 return (UnityEnd());
+ 	zMemPool_destroy();
+      return (UnityEnd());
 }
 

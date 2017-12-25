@@ -478,6 +478,7 @@ return segment_header->freed;
 
 void *zMemPool_destroy(void)
 {
+      free(_mempool);
 return NULL;
 }
 
