@@ -285,7 +285,7 @@ void *zMemPool_malloc(size_t size_of)
             __release(current_node);//__release(&(*current_node));
 
             struct segment_header *temp = (current_node)->segment_address;//ambil segment header
-            free(current_node);//bebaskan node link list \todo perlu efisiensi jika ada sisa di nodenya
+            //free(current_node);//bebaskan node link list \todo perlu efisiensi jika ada sisa di nodenya
             found = 1;/// \note released == NULL gak kebaca di gcc windows, is BUG ???
             //if (temp != NULL) //NOTE: sudah ada set flag ini setelah fungsi _reuse
             //      temp->freed = 0;//tandai sudah bisa dipakai kembali
