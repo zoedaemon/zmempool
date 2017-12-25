@@ -32,7 +32,7 @@
 
 #include "zMemPool.h"
 
-
+#define __cdecl __attribute__((__cdecl__))
 
 /**
 * @brief Tiap alokasi memori akan membentuk segment baru, #segment adalah struktur
