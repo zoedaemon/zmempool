@@ -478,6 +478,7 @@ return segment_header->freed;
 
 void *zMemPool_destroy(void)
 {
+      free(_mempool->start_pointer);
       free(_mempool);
 return NULL;
 }
@@ -684,6 +685,7 @@ void *__cdecl zMemPool_free(void *memory_ptr)
                   }else {
                         old_node_right_prev = old_node_right;
                         old_node_right = old_node_right->left; //move to the left
+                        free(new_node);
                   }
 
                   if (new_node->segment_size <= old_node_left->segment_size) {
@@ -694,6 +696,7 @@ void *__cdecl zMemPool_free(void *memory_ptr)
                   }else {
                         old_node_left_prev = old_node_left;
                         old_node_left = old_node_left->right; //move to the right
+                        free(new_node);
                   }
             }
       }
